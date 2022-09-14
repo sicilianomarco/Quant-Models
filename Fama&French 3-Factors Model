@@ -67,9 +67,10 @@ df_market["market_portfolio_level"].plot() # Market Portfolio - Blue
 df_market["portfolio_level"].plot() # Value portfolio - Orange
 
 
-### Regression ###
+### Regression - Fama & French 3 Factor Model ###
 
-x = df_market[['Mkt-RF']]
+x = df_market[['Mkt-RF', 'SMB', 'HML']]
+# x = df_market[['Mkt-RF']]
 y = df_market[['portfolio_return-RF']]
 x = sm.add_constant(x)
 model = sm.OLS(y, x).fit()
