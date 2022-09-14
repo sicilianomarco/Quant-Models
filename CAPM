@@ -1,0 +1,78 @@
+### Download Libraries ###
+
+pip install pandas-datareader
+pip install matplotlib
+pip install statsmodels
+pip install numpy
+pip install pandas
+pip install scipy
+
+
+### Import Libraries ###
+
+import pandas as pd
+import numpy as np
+import datetime
+from scipy import stats
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+import statsmodels.stats.api as sms
+from pandas_datareader.famafrench import get_available_datasets
+import pandas_datareader.data as web
+
+
+### Download data from Fama&French database ###
+
+start = datetime.datetime(2004,3,1)
+end = datetime.datetime(2022,7,1)
+df_market = web.DataReader('F-F_Research_Data_Factors','famafrench',start,end)
+df_market = df_market[0]
+
+
+### Levels ###
+
+df_market['market_portfolio'] = df_market['Mkt-RF'] + df_market['RF']
+
+market_portfolio_lvl = 1 + df_market['market_portfolio']/100 
+value_factor_lvl = 1 + df_market['HML']/100
+size_factor_lvl = 1 + df_market['SMB']/100
+
+df_market['market_portfolio_level']=market_portfolio_lvl.cumprod()*1000
+df_market['value_factor_level']=value_factor_lvl.cumprod()*1000
+df_market['size_factor_level']=size_factor_lvl.cumprod()*1000
+
+
+### Factors: Plot of Levels ###
+df_market['value_factor_level'].plot() # Orange: Value factor almost negative - factor is the excess return of value - growth
+df_market['size_factor_level'].plot() # Green: Size factor positive - factor is the excess return of small - big
+
+
+### Download the Value Portfolio from Fama&French database ###
+
+# print(get_available_datasets())
+df_portfolio = web.DataReader('Portfolios_Formed_on_BE-ME','famafrench',start,end) # Value Portfolio
+df_portfolio = df_portfolio[0]
+df_portfolio = df_portfolio['Hi 10']
+
+portfolio_lvl = 1 + df_portfolio/100
+portfolio_lvl = portfolio_lvl.cumprod()*1000
+portfolio_lvl
+df_market['portfolio_level']=portfolio_lvl
+df_market['portfolio_return']=df_portfolio
+df_market['portfolio_return-RF']=df_portfolio - df_market['RF']
+
+
+### Portfolios: Plot of Levels ###
+df_market["market_portfolio_level"].plot() # Market Portfolio - Blue
+df_market["portfolio_level"].plot() # Value portfolio - Orange
+
+
+### Regression ###
+
+x = df_market[['Mkt-RF']]
+y = df_market[['portfolio_return-RF']]
+x = sm.add_constant(x)
+model = sm.OLS(y, x).fit()
+predictions = model.predict(x)
+print_model = model.summary()
+print(print_model)
