@@ -1,0 +1,171 @@
+### Download Libraries ###
+
+# pip install numpy
+# pip install pandas
+# pip install python-math
+# pip install matplotlib
+# pip install scipy
+
+
+### Import Libraries ###
+
+import pandas_datareader as pdr
+import pandas as pd
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import scipy.optimize as sco
+
+
+### Set dates and download returns of financial products ###
+
+start = '2005-01-01'
+end = '2022-08-31'
+tickers = ['AAPL', 'MSFT', 'SPY', 'GLD']
+df = pdr.DataReader(tickers, 'yahoo', start, end)
+df = df['Adj Close']
+symbols = ['AAPL.O', 'MSFT.O', 'SPY', 'GLD']
+noa = len(symbols)
+rets = df / df.shift(1) -1
+
+
+### Functions ###
+
+# Annualized Mean Return
+mean_return = rets.mean()*252
+print("Past average returns: ", mean_return)
+
+# Annualized Covariance
+covariance = rets.cov()*252
+print("Covariance: ", covariance)
+
+# Portfolio Return
+def port_ret(weight):
+ return np.dot(weight.T, mean_return)
+
+# Portfolio Volatility
+def port_vol(weight):
+ return np.sqrt(np.dot(weight.T, np.dot(covariance, weight)))
+ 
+ 
+### Markowitz Model ###
+
+prets = [] # Empty List
+pvols = [] # Empty List
+
+for n in range(10000):
+    weight = np.random.random(noa) # Random Weights
+    weight = weight / np.sum(weight) 
+    prets.append(port_ret(weight)) # Save the result of the portfolio return based on random weights
+    pvols.append(port_vol(weight)) # Save the result of the portfolio volatility based on random weights 
+
+prets = np.array(prets) # List -> Array
+pvols = np.array(pvols) # List -> Array
+
+plt.figure(figsize=(10, 6))
+plt.scatter(pvols, prets, c=prets / pvols, marker='.', cmap='coolwarm') # c = color (Sharpe Ratio defines the change in color) 
+plt.xlabel('expected volatility')
+plt.ylabel('expected return')
+plt.colorbar(label='Sharpe ratio');
+
+
+### Construction of Optimal Portfolios ###
+
+def sharpe_ratio(weight): # This function only computes the sharpe ratio
+    return - port_ret(weight) / port_vol(weight) # Since we will use a minimization function instead of a maximization, we use a negative sign.
+
+# Constrains
+cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1}) # "sum of all weight equals 1"  # it's creating a dictionary, the first key is 'type' and the object is 'eq', the second key is 'fun' and the object is a function 
+bnds = tuple((0, 1) for x in range(noa)) # bound the weights, it creates #noa couples of 0 and 1 
+
+
+### (Opt) Sharpe Ratio Portfolio ###
+
+opts = sco.minimize(sharpe_ratio, weight, method='SLSQP', bounds=bnds, constraints=cons) # minimize function sharpe_ratio based on the input weight
+opts['x'].round(3)
+print('Expected Return:', port_ret(opts['x']).round(3)*100)
+print('Expected Volatility:', port_vol(opts['x']).round(3)*100)
+print('Sharpe Ratio:', port_ret(opts['x']) / port_vol(opts['x']))
+print(weight)
+
+
+### (Opt) Minimum Volatility Portfolio ###
+optv = sco.minimize(port_vol, weight, method='SLSQP', bounds=bnds, constraints=cons) # minimize function port_vol based on the input weight
+opts['x'].round(3)
+print('Expected Return:', port_ret(optv['x']).round(3)*100)
+print('Expected Volatility:', port_vol(optv['x']).round(3)*100)
+print('Sharpe Ratio:', port_ret(optv['x']) / port_vol(optv['x']))
+ 
+ 
+### Efficient Frontier ###
+
+cons = ({'type': 'eq', 'fun': lambda x: port_ret(x) - tret}, {'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+# port_ret computes the return given the weights and somehow it is fixed equal to the desired return
+bnds = tuple((0, 1) for x in weight)
+trets = np.linspace(0.1, 0.3, 70) # generates 70 numbers within the interval 0.08 and 0.3
+tvols = [] # once fixed the desired returns, we save the corresponding minimum vol (orizional perspective)
+
+for tret in trets:
+    res = sco.minimize(port_vol, weight, method='SLSQP', bounds=bnds, constraints=cons)
+    tvols.append(res['fun'])
+tvols = np.array(tvols)
+
+plt.figure(figsize=(10, 6))
+plt.scatter(pvols, prets, c=prets/pvols, marker='.', alpha=0.8, cmap='coolwarm')
+plt.plot(tvols, trets, 'b', lw=4.0) # draw the line following the efficient portfolio
+plt.plot(port_vol(opts['x']), port_ret(opts['x']),'y*', markersize=15.0) # higher sharpe ratio
+plt.plot(port_vol(optv['x']), port_ret(optv['x']),'y*', markersize=15.0) # min variance
+plt.xlabel('expected volatility')
+plt.ylabel('expected return')
+plt.colorbar(label='Sharpe ratio');
+ 
+ 
+### Capital Market Line ###
+
+import scipy.interpolate as sci
+
+ind = np.argmin(tvols) # argmin returns the indices of the minimum values along an axis
+evols = tvols[ind:] # save all the portfolios' vol on the right hand side of min vol portfolio
+erets = trets[ind:] #
+tck = sci.splrep(evols, erets)
+
+def f(x):
+        ''' Efficient frontier function (splines approximation). ''' 
+        return sci.splev(x, tck, der=0)
+
+def df(x):
+        ''' First derivative of efficient frontier function. ''' 
+        return sci.splev(x, tck, der=1)
+    
+def equations(p, rf=0.01): 
+    eq1=rf-p[0] 
+    eq2=rf+p[1]*p[2]-f(p[2]) 
+    eq3 = p[1] - df(p[2])
+    return eq1, eq2, eq3
+
+opt = sco.fsolve(equations, [0.01, 0.5, 0.15])
+np.round(equations(opt), 6)
+
+plt.figure(figsize=(10, 6))
+plt.scatter(pvols, prets, c=(prets - 0.01) / pvols, marker='.', cmap='coolwarm')
+plt.plot(evols, erets, 'b', lw=4.0)
+cx = np.linspace(0.0, 0.3)
+plt.plot(cx, opt[0] + opt[1] * cx, 'r', lw=1.5)
+plt.plot(opt[2], f(opt[2]), 'y*', markersize=15.0)
+plt.grid(True)
+plt.axhline(0, color='k', ls='--', lw=2.0)
+plt.axvline(0, color='k', ls='--', lw=2.0)
+plt.xlabel('expected volatility')
+plt.ylabel('expected return')
+plt.colorbar(label='Sharpe ratio')
+
+
+### Tangent Portfolio ###
+
+cons = ({'type': 'eq', 'fun': lambda x: port_ret(x) - f(opt[2])}, {'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+res = sco.minimize(port_vol, weight, method='SLSQP', bounds=bnds, constraints=cons)
+res['x'].round(3)
+print("Expected Return: ", port_ret(res['x'])*100)
+print("Volatility: ", port_vol(res['x'])*100)
+print("Sharpe Ratio: ", port_ret(res['x'])/port_vol(res['x']))
+print(weight)
