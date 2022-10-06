@@ -1,3 +1,85 @@
 ### Simple Moving Average ###
+### Idea: Implementing a SMAs investment strategy to outperform SPY, higher returns and sharpe ratio ###
+### Take Away: Optimization of the strategy based on in-the-sample data ###
 
 ### Import Libraries ###
+
+import pandas_datareader as pdr
+import numpy as np
+import pandas as pd
+import datetime as dt
+from pylab import mpl, plt
+import math
+from itertools import product
+
+
+### Download data from Yahoo ###
+
+tickers = ['AAPL', 'MSFT', 'SPY', 'GLD']
+start = '2000-01-01'
+end = '2022-09-28'
+df = pdr.DataReader(tickers, 'yahoo', start, end)
+df = df['Adj Close']
+
+
+### Inputs ###
+
+sma1 = 5
+sma2 = 190
+symbol = 'SPY'
+data = pd.DataFrame(df[symbol], columns=[symbol])
+
+
+### Compute Simple Moving Average & Signals ###
+
+data['sma1'] = data[symbol].rolling(sma1).mean()
+data['sma2'] = data[symbol].rolling(sma2).mean()
+['position'] = np.where(data['sma1'] > data['sma2'], 1, -1) 
+
+
+### Plot of Signals: Interaction of SMAs###
+
+data.plot(secondary_y='position', figsize=(10, 6));
+
+
+### Compute the financials ###
+
+data['ret'] = np.log(data[symbol] / data[symbol].shift(1))
+data = data[data['sma2'].notna() == True]
+data['strategy'] = data['position'].shift(1) * data['ret']
+tot_return = np.exp(data[['ret', 'strategy']].sum())
+tot_return = (tot_return ** (252/data[symbol].count()) - 1) *100
+tot_volatility = data[['ret', 'strategy']].std() * 252 ** 0.5 * 100
+print(tot_return)
+print(tot_volatility)
+print(tot_return / tot_volatility)
+
+
+###   Plot investment strategy ###
+
+ax = data[['ret', 'strategy']].cumsum().apply(np.exp).plot(figsize=(20, 6))
+data['position'].plot(ax=ax, secondary_y='position', style='--')
+ax.get_legend().set_bbox_to_anchor((0.25, 0.85)); 
+
+### Compute in-the-sample optimal inputs (lenght of SMAs) to maximazise returns ###
+# Compute the optimal amount of days for the sma1, sma2 to get ex-post the higher returns
+
+short = range(5, 50, 20)
+long = range(90, 252, 20) 
+results = pd.DataFrame()
+
+for sma1, sma2 in product(short, long):  
+    
+    data['ret'] = np.log(data[symbol] / data[symbol].shift(1))
+    
+    data['SMA1'] = data[symbol].rolling(sma1).mean()
+    data['SMA2'] = data[symbol].rolling(sma2).mean()
+        
+    data['position'] = np.where(data['SMA1'] > data['SMA2'], 1, -1)
+    data['strategy'] = data['position'].shift(1) * data['ret']
+
+    perf = np.exp(data[['ret', 'strategy']].sum())
+    
+    results = results.append(pd.DataFrame({'SMA1': sma1, 'SMA2': sma2, 'MARKET': perf['ret'], 'STRATEGY': perf['strategy'], 'OUT': perf['strategy'] - perf['ret']}, index=[0]), ignore_index=True) 
+    
+results.sort_values('OUT', ascending=False)
