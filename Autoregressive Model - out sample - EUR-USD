@@ -1,0 +1,146 @@
+### Autoregressive Model - out sample - EUR/USD ###
+
+# Version 2) Strategy training in sample, testing of sample
+
+# No transaction fees
+# Test of the strategy: Vectorized backtesting
+### Take Away: Convert regression into investment strategies ###
+
+# Idea: Forecast predictive power of random walk on EUR/USD and developed 2 investment strategies based on the signals of the model #
+# Strategy 1:  Regress the log lags returns against the current return to see the forecasting power 
+# Strategy 2:  Regress the lags returns against the lags direction of the market (without considering the size of the movement in price) 
+
+
+### Import Libraries ###
+
+pip install sklearn
+import pandas_datareader as pdr
+import numpy as np
+import pandas as pd
+from pylab import mpl, plt
+from sklearn.linear_model import LinearRegression
+
+
+### Download data from Yahoo ###
+
+start = '2000-01-01'
+intermediate = '2010-01-01'
+end = '2022-09-28'
+
+# symbol = 'SPY'
+symbol = 'EURUSD=X'
+data = pdr.DataReader(symbol, 'yahoo', start, intermediate)
+data = data.rename(columns={'Adj Close': 'exchange'})
+df = pd.DataFrame(data['exchange'])
+
+data1 = pdr.DataReader(symbol, 'yahoo', intermediate, end)
+data1 = data1.rename(columns={'Adj Close': 'exchange'})
+df1 = pd.DataFrame(data1['exchange'])
+
+
+### Convert returns in log form and compute directions ###
+# Log returns are stationary - symmetric distribution 
+
+df['ret'] = np.log(df/df.shift(1))
+df1['ret'] = np.log(df1/df1.shift(1))
+
+df['direction'] = np.sign(df['ret'])
+df.dropna(inplace=True)
+df1['direction'] = np.sign(df1['ret'])
+df1.dropna(inplace=True)
+
+
+### Distribution of log returns - Histogram ###
+
+# df['ret'].hist(bins=30, figsize=(10,6));
+# df1['ret'].hist(bins=30, figsize=(10,6));
+
+
+### generate lags retrurns ###
+lags = 2
+def create_lags(df):
+    global cols
+    cols = []
+    for lag in range(1, lags+1):
+        col = 'lag_{}'.format(lag) # create the name
+        df[col] = df['ret'].shift(lag) # create the column within df
+        cols.append(col) # store column name for future use
+create_lags(df)
+create_lags(df1)
+
+
+### Scatter plot ###
+
+df.plot.scatter(x='lag_1', y='lag_2', c='ret', cmap='coolwarm', figsize=(10, 6), colorbar=True)
+plt.axvline(0, c='r', ls='--')
+plt.axhline(0, c='r', ls='--');
+
+df1.plot.scatter(x='lag_1', y='lag_2', c='ret', cmap='coolwarm', figsize=(10, 6), colorbar=True)
+plt.axvline(0, c='r', ls='--')
+plt.axhline(0, c='r', ls='--');
+
+
+### OLS regression ###
+
+# IMPO: Develop the strategy in sample (df), but test the validity out of sample (df1)
+
+# Strategy 1
+# dependent variable: current return - independent variables: lag1, lag2 - objective; estimate expected return based on lags returns 
+# Strategy 2
+# dependent variable: current market direction - independent variables: lag1, lag2 - objective; estimate market binary movements based on lags returns
+
+firstmod = model.fit(df[cols], df['ret']) # fit the model in sample
+df1['pos_ols_1'] = firstmod.predict(df1[cols]) # test the model out sample
+
+secondmod = model.fit(df[cols], df['direction']) # fit the model in sample
+df1['pos_ols_2'] = secondmod.predict(df1[cols])# test the model out sample
+
+
+### Strategies development ###
+
+# The value predictions are transformed into directional binary values
+
+df1[['pos_ols_1', 'pos_ols_2']] = np.where(df1[['pos_ols_1', 'pos_ols_2']] > 0, 1, -1)
+print(df1['pos_ols_1'], df1['pos_ols_2'])
+
+# The two approaches yield different directional predictions !!!
+
+# Tot number of Buy and Sell signals
+print(df1['pos_ols_1'].value_counts()) 
+print(df1['pos_ols_2'].value_counts())
+
+# Number of trades: change in value between a signal direction and the previous
+print((df1['pos_ols_1'].diff() != 0).sum())
+print((df1['pos_ols_2'].diff() != 0).sum())
+
+# Compute the daily return according to the trading strategies
+# Idea: multiply the actual daily return with the position (long/short) taken according to the model  
+df1['strat1'] = df1['pos_ols_1'] * df1['ret']
+df1['strat2'] = df1['pos_ols_2'] * df1['ret']
+
+# Compute returns
+df1['strat_long'] = df1['ret']+1
+df1['strat1'] = df1['strat1']+1
+df1['strat2'] = df1['strat2']+1
+
+df1['strat_long'] = np.cumprod(df1['strat_long'])
+df1['strat1'] = np.cumprod(df1['strat1'])
+df1['strat2'] = np.cumprod(df1['strat2'])
+
+# Number of correct predictions per strategy
+print((df1['direction'] == df1['pos_ols_1']).value_counts())
+print((df1['direction'] == df1['pos_ols_2']).value_counts())
+
+
+### Final Chart ###
+
+df1[['strat_long', 'strat1', 'strat2']].plot(figsize=(10, 6))
+plt.title('Performance of {} and regression based strategies over time'.format(symbol));
+
+
+### Annualized performance ###
+
+ann_strat1 = (df1['strat1'][-1]**(250/df1['strat1'].count())-1)*100
+ann_strat2 = (df1['strat2'][-1]**(250/df1['strat2'].count())-1)*100
+print(ann_strat1)
+print(ann_strat2)
