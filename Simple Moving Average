@@ -1,6 +1,6 @@
 ### Simple Moving Average ###
 ### Idea: Implementing a Simple Moving Average investment strategy to outperform SPY, higher returns and sharpe ratio ###
-### Take Away: Optimization of the strategy in the sample ###
+### Take Away: Optimization of the strategy in the sample - Montecarlo simulation to find optimal SMAs ###
 
 
 ### Import Libraries ###
