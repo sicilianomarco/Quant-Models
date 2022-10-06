@@ -1,6 +1,7 @@
 ### Simple Moving Average ###
 ### Idea: Implementing a SMAs investment strategy to outperform SPY, higher returns and sharpe ratio ###
-### Take Away: Optimization of the strategy based on in-the-sample data ###
+### Take Away: Optimization of the strategy based on in-the-sample data 
+
 
 ### Import Libraries ###
 
