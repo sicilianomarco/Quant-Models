@@ -1,9 +1,14 @@
-### Random Walk: EUR/USD ###
+### Autoregressive Model - In the sample - EUR/USD ###
 
-### Idea: Forecast predictive power of random walk on EUR/USD and developed 2 investment strategies based on the signals of the model ###
-### Strategy 1:  Regress the log lags returns against the current return to see the forecasting power - Annualized Return 9.28%
-### Strategy 2:  Regress the lags returns against the lags direction of the market (without considering the size of the movement in price) - Annualized Return 8.95%
-### Take Away: Convert regressions into investment strategies 
+# Version 1) Same dataset for training and testing investment strategy 
+
+# No transaction fees
+# Test of the strategy: Vectorized backtesting
+### Take Away: Convert regression into investment strategies ###
+
+# Idea: Forecast predictive power of random walk on EUR/USD and developed 2 investment strategies based on the signals of the model #
+# Strategy 1:  Regress the log lags returns against the current return to see the forecasting power - Annualized Return 9.28%
+# Strategy 2:  Regress the lags returns against the lags direction of the market (without considering the size of the movement in price) - Annualized Return 8.95%
 
 
 ### Import Libraries ###
@@ -27,16 +32,20 @@ df = pd.DataFrame(data['exchange'])
 
 
 ### Convert returns in log form and compute directions ###
-# Log returns are stationary - symmetry of distribution 
+# Log returns are stationary - symmetric distribution 
 
 df['ret'] = np.log(df/df.shift(1))
 df['direction'] = np.sign(df['ret'])
 df.dropna(inplace=True)
 
+
 ### Distribution of log returns - Histogram ###
+
+df['ret'].hist(bins=30, figsize=(10,6));
 
 
 ### Generate lags returns ###
+
 lags = 2
 def create_lags(df):
     global cols
@@ -81,17 +90,11 @@ for i,j in zip(independent, predictions):
     print(print_model)
 
 
-# Strategies development
+### Strategies development ###
 
 # The real value predictions are transformed to directional binary values
 df[['pos_ols_1', 'pos_ols_2']] = np.where(df[['pos_ols_1', 'pos_ols_2']] > 0, 1, -1)
-
-# Model Assumptions
-# 1 - Zero transaction costs
-# 2 - we are using the sama data set for both training and testing
-
-# Test of the strategy: Vectorized backtesting
-# Idea: multiply the actual daily return with the position (long/short) taken according to the model  
+# The two approaches yield different directional predictions !!!
 
 # Tot number of Buy and Sell signals
 print(df['pos_ols_1'].value_counts()) 
@@ -102,6 +105,7 @@ print((df['pos_ols_1'].diff() != 0).sum())
 print((df['pos_ols_2'].diff() != 0).sum())
 
 # Compute the daily return according to the trading strategies
+# Idea: multiply the actual daily return with the position (long/short) taken according to the model  
 df['strat_ols_1'] = df['pos_ols_1'] * df['ret']
 df['strat_ols_2'] = df['pos_ols_2'] * df['ret']
 
@@ -122,6 +126,7 @@ print((df['direction'] == df['pos_ols_2']).value_counts())
 
 df[['strat_long', 'strat1', 'strat2']].plot(figsize=(10, 6))
 plt.title('Performance of EUR/USD and regression based strategies over time');
+
 
 ### Annualized performance ###
 ann_strat1 = (df['strat1'][-1]**(250/df['strat1'].count())-1)*100
