@@ -57,22 +57,31 @@ plt.axhline(0, c='r', ls='--');
 
 ### OLS regression ###
 
-df.dropna(inplace=True)
-model = LinearRegression()
-
 # Strategy 1
-df['pos_ols_1'] = model.fit(df[cols], df['ret']).predict(df[cols]) # the result is the estimated value after fitting the regression with the 1st method
 # dependent variable: current return - independent variables: lag1, lag2 - objective; estimate expected return based on lags returns 
-
 # Strategy 2
-df['pos_ols_2'] = model.fit(df[cols], df['direction']).predict(df[cols]) # the result is the estimated value after fitting the regression with the 2nd method
 # dependent variable: current market direction - independent variables: lag1, lag2 - objective; estimate market binary movements based on lags returns
+
+df.dropna(inplace=True)
+independent = ['ret', 'direction']
+predictions = ['pos_ols_1', 'pos_ols_2']
+
+for i,j in zip(independent, predictions):
+    
+    x = df[cols]
+    y = df[i]
+    x = sm.add_constant(x)
+    
+    model = sm.OLS(y, x).fit()
+    
+    q_coef = round(model.params[-2:], 2)
+    df[j] = model.predict(x)
+    
+    print_model = model.summary()
+    print(print_model)
 
 
 # Strategies development
-
-print(model.coef_)
-print(model.intercept_)
 
 # The real value predictions are transformed to directional binary values
 df[['pos_ols_1', 'pos_ols_2']] = np.where(df[['pos_ols_1', 'pos_ols_2']] > 0, 1, -1)
