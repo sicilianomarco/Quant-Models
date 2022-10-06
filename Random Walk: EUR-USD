@@ -3,7 +3,7 @@
 ### Idea: Forecast predictive power of random walk on EUR/USD and developed 2 investment strategies based on the signals of the model ###
 ### Strategy 1:  Regress the log lags returns against the current return to see the forecasting power - Annualized Return 9.28%
 ### Strategy 2:  Regress the lags returns against the lags direction of the market (without considering the size of the movement in price) - Annualized Return 8.95%
-### Take Away: - Convert regressions into investment strategies ###
+### Take Away: Convert regressions into investment strategies 
 
 
 ### Import Libraries ###
