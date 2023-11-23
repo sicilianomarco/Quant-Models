@@ -1,4 +1,4 @@
-# Quant-Models
+# Finance Models
 Here you can find the following Asset Pricing Models, Portfolio Optimization techniques and Investment Strategies
 
 1) **Portfolio Optimization** *Markowitz model, Efficient Frontier,  Min Vol Portfolio, Optimal Portfolio, Capital Market Line, Tangent Portfolio*
