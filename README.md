@@ -7,3 +7,4 @@ Here you can find the following Asset Pricing Models, Portfolio Optimization tec
 4) **Fama & French 3-Factors Model** *Value, Size*
 5) **Simple Moving Averages** *Optimization of the strategy in the sample - Montecarlo simulation to find optimal SMAs*
 6) **Autoregressive Model - EUR/USD** *• Version 1) In sample  • Version 2) Out sample • Strategy 1: Regress the log lags returns against current returns to see the forecasting power  • Strategy 2: Regress the log lags returns against direction of the market (without considering the size of the movement in price)*
+7) **Black Scholes Merton model to price option** *Value, Size*
