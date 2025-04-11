@@ -1,0 +1,81 @@
+# Corr Scatterplot + Heatmap
+
+# pip install yfinance
+import yfinance as yf
+import pandas as pd
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+# Download daily yield data for 10-Year Treasury (^TNX) and 5-Year Treasury (^FVX)
+series1= yf.download("^TNX", start="2020-01-01", end="2025-04-08", interval="1d")['Close']
+series2 = yf.download("^FVX", start="2020-01-01", end="2025-04-08", interval="1d")['Close']
+
+# Combine and rename
+data = pd.concat([series1, series2], axis=1)
+data.columns = ['UST10Y', 'UST5Y']
+
+# Convert to basis points and calculate daily differences
+data = data * 100
+data = data.diff().round(2)
+
+# Weekly aggregation: sum of daily absolute changes
+weekly_abs_change = data.resample('W-FRI').sum().round(2)
+
+# Add year as a column
+weekly_abs_change['Year'] = weekly_abs_change.index.year
+
+# Define custom color mapping
+max_year = weekly_abs_change['Year'].max()
+min_year = weekly_abs_change['Year'].min()
+
+# Categorize years based on their age
+def categorize_year(year):
+    if year < min_year + 2:  # Very old dates: dark blue shades
+        return '#003366'  # Dark blue
+    elif year < max_year - 2:  # Old dates: light blue shades
+        return '#66b3ff'  # Light blue
+    elif year < max_year - 1:  # Medium old dates: yellow shades
+        return '#ffff00'  # Yellow
+    elif year == max_year - 1:  # Recent dates: light red shades
+        return '#ff7f7f'  # Light red
+    else:  # Last year: red
+        return '#ff0000'  # Red
+
+# Apply color categorization based on the year
+colors = weekly_abs_change['Year'].apply(categorize_year)
+
+# Extract variables
+x = weekly_abs_change['UST10Y']
+y = weekly_abs_change['UST5Y']
+
+# Get the max absolute value for symmetric axis scaling
+limit = max(abs(x).max(), abs(y).max()) + 2  # +2 for a little margin
+
+# Plot
+plt.figure(figsize=(10, 6))
+scatter = plt.scatter(x, y, c=colors, alpha=0.8)
+
+# Mark the last week's move with a big red "X"
+plt.scatter(x.iloc[-1], y.iloc[-1], color='black', marker='x', s=200, linewidths=3, label='Last Week')
+
+#plt.colorbar(scatter, label='Year')
+
+# Center the axes at (0,0)
+plt.axhline(0, color='black', linewidth=1, linestyle='--')
+plt.axvline(0, color='black', linewidth=1, linestyle='--')
+
+# Set the same limits on both axes
+plt.xlim(-limit, limit)
+plt.ylim(-limit, limit)
+
+# Legend by year
+handles = [plt.Line2D([0], [0], marker='o', color='w', label=str(year), markerfacecolor=color, markersize=10)
+           for year, color in year_to_color.items()]
+plt.legend(handles=handles, title="Year", bbox_to_anchor=(1.05, 1), loc='upper left')
+
+plt.title("2D Scatter Plot of Weekly Moves: UST10Y vs UST5Y")
+plt.xlabel("UST10Y Weekly Move (bps)")
+plt.ylabel("UST5Y Weekly Move (bps)")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
